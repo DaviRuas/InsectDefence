@@ -2,57 +2,68 @@ package assignment1;
 
 public class Tile {
 
-    //Fields
-    private int food;                    // amount of food on tile
-    private boolean isHive;              // If tile is a hive
-    private boolean isNest;              // If tile is a nest
-    private boolean onThePath;           // If tile belongs to path
-    private Tile towardTheHive;          // Next tile from tile -> Hive
-    private Tile towardTheNest;          // Next tile from tile -> Nest
-    private HoneyBee bee;                //	To keep at most 1 bee per tile
+    // Fields
     private SwarmOfHornets swarm;        // #Of hornets
+    private HoneyBee bee;                // At most 1 bee per tile
+    private int food;                    // Amount of food on tile
+    private boolean onThePath;           // If tile belongs to path
+    private Tile towardTheHive;          // Next tile from this -> Hive
+    private Tile towardTheNest;          // Next tile from this -> Nest
+    private boolean isNest;              // If tile is a nest
+    private boolean isHive;              // If tile is a hive
     private boolean onFire;              // Is tile on fire
 
-    /*These define the state of the board. towardTheHive and towardTheNest allows 
-     * the insects to move without map needing to recalculate the path
-     *
+    /* These define the state of the board. 
+     * towardTheHive and towardTheNest allow insects to move 
+     * without the map recalculating the path each time.
      */
-    
-    // Constructors
+
+    // ---------------- Constructors ----------------
+
+    // Default constructor
     public Tile() {
-        this.food = 0;
-        this.isHive = false;
-        this.isNest = false;
-        this.onThePath = false;
-        this.towardTheHive = null;
-        this.towardTheNest = null;
-        this.bee = null;
-        this.swarm = new SwarmOfHornets();
-        this.onFire = false; //always set to false at start
+        this(null, null, 0, false, null, null, false, false, false);
     }
 
-    // Full constructor 
+    // Constructor expected by MiniTest
     public Tile(int food, boolean isHive, boolean isNest, boolean onThePath,
-                Tile towardTheHive, Tile towardTheNest, HoneyBee bee, SwarmOfHornets swarm) {
+                Tile towardTheHive, Tile towardTheNest,
+                HoneyBee bee, SwarmOfHornets swarm) {
+        this.swarm = (swarm == null) ? new SwarmOfHornets() : swarm;
+        this.bee = bee;
         this.food = food;
-        this.isHive = isHive;
-        this.isNest = isNest;
         this.onThePath = onThePath;
         this.towardTheHive = towardTheHive;
         this.towardTheNest = towardTheNest;
-        this.bee = bee;
-        this.swarm = (swarm == null) ? new SwarmOfHornets() : swarm; // This means that even if you pass null, there will always be a swarm present
-        this.onFire = false;
+        this.isHive = isHive;
+        this.isNest = isNest;
+        this.onFire = false; // always false at start
     }
 
-    // Hive and Nests
+    // Full constructor
+    public Tile(SwarmOfHornets swarm, HoneyBee bee, int food,
+                boolean onThePath, Tile towardTheHive, Tile towardTheNest,
+                boolean isHive, boolean isNest, boolean onFire) {
+        this.swarm = (swarm == null) ? new SwarmOfHornets() : swarm;
+        this.bee = bee;
+        this.food = food;
+        this.onThePath = onThePath;
+        this.towardTheHive = towardTheHive;
+        this.towardTheNest = towardTheNest;
+        this.isHive = isHive;
+        this.isNest = isNest;
+        this.onFire = onFire;
+    }
+
+    // Hive & Nest 
+
     public boolean isHive() { return isHive; }
     public boolean isNest() { return isNest; }
 
     public void buildHive() { this.isHive = true; }
     public void buildNest() { this.isNest = true; }
 
-    // Path and connections
+    //  Path Mechanism 
     public boolean isOnThePath() { return onThePath; }
 
     public Tile towardTheHive() {
@@ -66,19 +77,20 @@ public class Tile {
     }
 
     public void createPath(Tile nextTowardHive, Tile nextTowardNest) {
-        // Validate nulls if not endpoint
+        // if there's no endpoints then throw error
         if (nextTowardHive == null && !this.isHive) {
-            throw new IllegalArgumentException("towardTheHive null but tile is not the Hive");
+            throw new IllegalArgumentException("tile is invalid , towardTheHive is null but it's not the Hive");
         }
         if (nextTowardNest == null && !this.isNest) {
-            throw new IllegalArgumentException("towardTheNest null but tile is not the Nest");
+            throw new IllegalArgumentException("tile is invalid , towardTheHive is null but it's not the Hive");
         }
         this.onThePath = true;
         this.towardTheHive = nextTowardHive;
         this.towardTheNest = nextTowardNest;
     }
 
-    // Food
+    // - Food mechanism 
+
     public int collectFood() {
         int out = this.food;
         this.food = 0;
@@ -89,7 +101,8 @@ public class Tile {
         if (amount > 0) this.food += amount;
     }
 
-    // Bees and Hornets
+    //  Bee & Hornet
+
     public int getNumOfHornets() {
         return (swarm == null) ? 0 : swarm.sizeOfSwarm();
     }
@@ -104,23 +117,21 @@ public class Tile {
         return (swarm == null) ? new Hornet[0] : swarm.getHornets();
     }
 
-    
     /**
-     * Adds an insect to tile if action can be made
-     * Bees cannot be placed on nest nor can there be more than 1 bee per tile.
-     * Hornets can only be on the path of hive or nest
+     * Adds an insect to this tile if allowed.
+     * Bees: max 1 bee per tile and bee cannot be placed on nest
+     * Hornets: can only be placed on the path of hive -> nest
      */
     public boolean addInsect(Insect i) {
         if (i == null) return false;
 
         if (i instanceof HoneyBee) {
-            // bee is already on tile or tile is the nest , aka.: reject action
             if (this.bee != null || this.isNest) return false;
             this.bee = (HoneyBee) i;
             i.setPosition(this);
             return true;
         } else { // Hornet
-            if (!this.onThePath) return false; // hornets only on path
+            if (!this.onThePath) return false;
             if (this.swarm == null) this.swarm = new SwarmOfHornets();
             this.swarm.addHornet((Hornet) i);
             i.setPosition(this);
@@ -128,9 +139,7 @@ public class Tile {
         }
     }
 
-    /**
-     * Removes the insect object; sets its tile to null
-     */
+    // Removes the insect and moves its position
     public boolean removeInsect(Insect i) {
         if (i == null) return false;
 
@@ -149,7 +158,8 @@ public class Tile {
         }
     }
 
-    // Fire
+    // ---------------- Fire Mechanism ----------------
+
     public void setOnFire() { this.onFire = true; }
     public boolean isOnFire() { return this.onFire; }
 }
